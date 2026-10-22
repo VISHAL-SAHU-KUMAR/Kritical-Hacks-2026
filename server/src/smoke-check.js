@@ -1,0 +1,14 @@
+const assert=require('node:assert/strict');
+const base='http://localhost:3001/api/v1';
+async function call(path,method='GET',data,jar){const r=await fetch(base+path,{method,headers:{...(data?{'content-type':'application/json'}:{}),...(jar?{cookie:jar}:{})},body:data?JSON.stringify(data):undefined});const cookie=r.headers.get('set-cookie')?.split(';')[0];let body;if(r.headers.get('content-type')?.includes('json'))body=await r.json();else body=await r.text();return{status:r.status,body,cookie};}
+(async()=>{const email='smoke-'+Date.now()+'@example.test';let a=await call('/auth/register','POST',{name:'Smoke User',email,password:'correct-horse-battery'});assert.equal(a.status,201);const jar=a.cookie;
+let inv=await call('/invoices','POST',{invoiceNumber:'SMOKE-1',customerName:'Fictional Customer',amount:'1250.50',invoiceDate:'2026-10-01',dueDate:'2026-10-02'},jar);assert.equal(inv.status,201);assert.equal(inv.body.status,'Overdue');assert.equal(inv.body.outstanding,'1250.50');
+let p=await call('/invoices/'+inv.body.id+'/payments','POST',{amount:'250.25',paymentDate:'2026-10-03'},jar);assert.equal(p.status,201);assert.equal(p.body.invoice.outstanding,'1000.25');
+let excessive=await call('/invoices/'+inv.body.id+'/payments','POST',{amount:'1000.26'},jar);assert.equal(excessive.status,400);
+let reminder=await call('/reminders/generate','POST',{invoiceId:inv.body.id,tone:'Professional',language:'English',channel:'Email'},jar);assert.equal(reminder.status,201);assert.equal(reminder.body.generationSource,'deterministic-fallback');assert.match(reminder.body.content,/1,000\.25/);
+let research=await call('/research','POST',{query:'Where can a business find official MSME delayed payment information?'},jar);assert.equal(research.status,503);assert.equal(research.body.research.sources.length,0);
+let other=await call('/auth/register','POST',{name:'Other User',email:'other-'+Date.now()+'@example.test',password:'correct-horse-battery'});let foreign=await call('/invoices/'+inv.body.id,'GET',undefined,other.cookie);assert.equal(foreign.status,404);
+let check=await call('/invoices/'+inv.body.id+'/checklist','POST',{title:'Invoice copy'},jar);assert.equal(check.status,201);let update=await call('/checklist/'+check.body.id,'PATCH',{completed:true},jar);assert.equal(update.body.completed,true);
+const dash=await call('/dashboard/summary','GET',undefined,jar);assert.equal(dash.body.outstanding,'1000.25');const csv=await call('/reports/export.csv','GET',undefined,jar);assert.equal(csv.status,200);assert.match(csv.body,/Fictional Customer/);
+console.log('Smoke checks passed: auth, invoice/status, partial payment, overpayment rejection, fallback reminder, TinyFish unavailable handling, ownership, checklist, dashboard and CSV.');
+})().catch(e=>{console.error(e);process.exitCode=1});

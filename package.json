@@ -1,0 +1,13 @@
+{
+  "name": "dueshield-ai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dueshield AI — payment follow-up workspace for Indian MSMEs",
+  "scripts": {
+    "start": "node server/src/server.js",
+    "dev": "node --watch server/src/server.js",
+    "check": "node --check server/src/server.js && node --check client/src/app.js",
+    "check:smoke": "node server/src/smoke-check.js"
+  },
+  "engines": { "node": ">=20" }
+}
